@@ -18,7 +18,8 @@ This repository contains a ROS (Robot Operating System) node for visualizing Bas
 
 ## Usage
 1. Launch your ROS environment.
-2. Run the `v2x_viz_node` executable to start the visualization node.
+2. Run the `v2x_viz_node` executable to start the visualization node:  
+```rosrun apsrc_v2x_viz apsrc_v2x_viz_node```
 3. Subscribe to the appropriate topics to provide BSM, GPS, and IMU data.
 
 ## Parameters
