@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>apsrc_v2x_viz</name>
+  <version>1.0.0</version>
+  <description>The v2x_viz package</description>
+  <maintainer email="mbahramg@mtu.edu">Mojtaba Bahramgiri</maintainer>
+  <license>TODO</license>
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>message_generation</build_depend>
+  <depend>visualization_msgs</depend>
+  <depend>geodesy</depend>
+  <depend>apsrc_msgs</depend>
+  <depend>geographic_msgs</depend>
+  <depend>roscpp</depend>
+  <depend>roslib</depend>
+  <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
+</package>
