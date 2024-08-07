@@ -4,7 +4,14 @@
 #include <visualization_msgs/Marker.h>
 #include <gps_common/GPSFix.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/PointCloud2.h>
 #include <cmath>
+#include <pcl/io/pcd_io.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/common/transforms.h>
+#include <Eigen/Dense>
+
 
 struct BSM_node
 {
@@ -12,6 +19,9 @@ struct BSM_node
   double x;
   double y;
   double yaw;
+  double abs_x;
+  double abs_y;
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
 };
 
 class BsmSubscriber {
@@ -22,16 +32,40 @@ public:
     bsm_sub_ = nh_.subscribe(bsm_topic_, 10, &BsmSubscriber::bsmCallback, this);
     gps_sub_ = nh_.subscribe(gps_topic_, 10, &BsmSubscriber::gpsCallback, this);
     imu_sub_ = nh_.subscribe(imu_topic_, 10, &BsmSubscriber::imuCallback, this);
-    marker_pub_ = nh_.advertise<visualization_msgs::Marker>("v2x/viz/markers", 1, true);   
+    marker_pub_ = nh_.advertise<visualization_msgs::Marker>("v2x/viz/markers", 1, true);
+
+    if (fake_lidar_){
+      lidar_mod_pub_ = nh_.advertise<sensor_msgs::PointCloud2>(lidar_topic_pub_, 1, this);
+      lidar_sub_     = nh_.subscribe(lidar_topic_sub_, 10, &BsmSubscriber::lidarCallback, this);
+    }
+    
   }
 
   void loadParams()
   {
+    nh_.param("apsrc_v2x_viz/fake_lidar", fake_lidar_, false);
+    nh_.param<std::string>("apsrc_v2x_viz/pcd_file", pcd_FILENAME_, "null.pcd");
+    nh_.param<std::string>("apsrc_v2x_viz/lidar_topic_listener", lidar_topic_sub_, "/points_raw");
+    nh_.param<std::string>("apsrc_v2x_viz/lidar_topic_publisher", lidar_topic_pub_, "/points_mod");
     nh_.param<std::string>("bsm_topic", bsm_topic_, "/v2x/BasicSafetyMessage");
     nh_.param<std::string>("gps_topic", gps_topic_, "/gps/gps");
     nh_.param<std::string>("imu_topic", imu_topic_, "/gps/imu");
     nh_.param("MA_gain", MA_gain_, 0.1);
     ROS_INFO("Parameters Loaded");
+
+    if (!fake_lidar_){
+      ROS_INFO("%s", pcd_FILENAME_.c_str());
+      return;
+    }
+
+    if (pcl::io::loadPCDFile<pcl::PointXYZ>(pcd_FILENAME_, *dummy_pc_) == -1)
+    {
+      ROS_WARN("Couldn't read PCD file \n");
+      fake_lidar_ = false;
+    } else {
+      ROS_INFO("PCD loaded \n");
+    }
+    return;
   }
 
   void gpsCallback(const gps_common::GPSFix::ConstPtr& msg){
@@ -49,6 +83,7 @@ public:
   }
 
   void bsmCallback(const apsrc_msgs::BasicSafetyMessage::ConstPtr& msg) {
+    
     int node_idx = -1;
     if (BSM_node_list_.size()>0){
       for (size_t idx = 0; idx < BSM_node_list_.size(); ++idx){
@@ -62,8 +97,12 @@ public:
     if (node_idx == -1) {
       BSM_node node;
       node.id = msg->BSMCore.ID;
+      if (fake_lidar_){
+        pcl::io::loadPCDFile<pcl::PointXYZ>(pcd_FILENAME_, *node.cloud);
+      }
       BSM_node_list_.push_back(node);
       node_idx = BSM_node_list_.size() - 1;
+      
     }
 
     geographic_msgs::GeoPoint geo_target = {};
@@ -85,29 +124,31 @@ public:
     BSM_node_list_[node_idx].yaw = BSM_node_list_[node_idx].yaw * (1-MA_gain_) + new_yaw * MA_gain_;
     BSM_node_list_[node_idx].x = utm_target.easting;
     BSM_node_list_[node_idx].y = utm_target.northing;
+    BSM_node_list_[node_idx].abs_x = x;
+    BSM_node_list_[node_idx].abs_y = y;
 
-    visualization_msgs::Marker marker = {};
-    marker.header.frame_id = "base_link";
-    marker.header.stamp = msg->header.stamp;
-    marker.pose.position.x = x;
-    marker.pose.position.y = y;
-    marker.pose.position.z = 0;
-    tf::Quaternion quaternion;
-    quaternion.setRPY(0, 0, BSM_node_list_[node_idx].yaw);
-    marker.pose.orientation.x = quaternion.x();
-    marker.pose.orientation.y = quaternion.y();
-    marker.pose.orientation.z = quaternion.z();
-    marker.pose.orientation.w = quaternion.w();
-    marker.scale.x = 1;
-    marker.scale.y = 1;
-    marker.scale.z = 1;
-    marker.color.a = .5;
-    marker.color.r = 100;
-    marker.color.b = 100;
-    marker.color.g = 100;
-    marker.type = visualization_msgs::Marker::MESH_RESOURCE;
-    marker.mesh_resource = "package://detected_objects_visualizer/models/car.dae";
-    marker_pub_.publish(marker);
+    // visualization_msgs::Marker marker = {};
+    // marker.header.frame_id = "base_link";
+    // marker.header.stamp = msg->header.stamp;
+    // marker.pose.position.x = x;
+    // marker.pose.position.y = y;
+    // marker.pose.position.z = 0;
+    // tf::Quaternion quaternion;
+    // quaternion.setRPY(0, 0, BSM_node_list_[node_idx].yaw);
+    // marker.pose.orientation.x = quaternion.x();
+    // marker.pose.orientation.y = quaternion.y();
+    // marker.pose.orientation.z = quaternion.z();
+    // marker.pose.orientation.w = quaternion.w();
+    // marker.scale.x = 1;
+    // marker.scale.y = 1;
+    // marker.scale.z = 1;
+    // marker.color.a = .5;
+    // marker.color.r = 100;
+    // marker.color.b = 100;
+    // marker.color.g = 100;
+    // marker.type = visualization_msgs::Marker::MESH_RESOURCE;
+    // marker.mesh_resource = "package://detected_objects_visualizer/models/car.dae";
+    // marker_pub_.publish(marker);
 
 
     visualization_msgs::Marker text; 
@@ -136,10 +177,33 @@ public:
     marker_pub_.publish(text);
   }
 
+  void lidarCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
+  {
+    pcl::PointCloud<pcl::PointXYZ>::Ptr raw(new pcl::PointCloud<pcl::PointXYZ>());
+    pcl::fromROSMsg(*msg, *raw);
+    pcl::PointCloud<pcl::PointXYZ> combined_cloud = *raw;
+
+    if (BSM_node_list_.size()> 0){
+      for (size_t bsm_idx = 0; bsm_idx<BSM_node_list_.size();bsm_idx++){
+        float z = -1.98;
+        transform_.translation() << BSM_node_list_[bsm_idx].abs_x, BSM_node_list_[bsm_idx].abs_y, z;
+
+        pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud(new pcl::PointCloud<pcl::PointXYZ>());
+        pcl::transformPointCloud(*BSM_node_list_[bsm_idx].cloud, *transformed_cloud, transform_);
+
+        combined_cloud += *(transformed_cloud);
+      }
+    }
+    pcl::toROSMsg(combined_cloud, pcd_msg_);
+    pcd_msg_.header.frame_id = "lidar";
+    lidar_mod_pub_.publish(pcd_msg_);
+    return;
+  }
+
 private:
   ros::NodeHandle nh_;
-  ros::Subscriber bsm_sub_, gps_sub_, imu_sub_;
-  ros::Publisher marker_pub_;
+  ros::Subscriber bsm_sub_, gps_sub_, imu_sub_, lidar_sub_;
+  ros::Publisher marker_pub_, lidar_mod_pub_;
 
   std::string gps_topic_, imu_topic_, bsm_topic_;
 
@@ -149,6 +213,14 @@ private:
 
   std::vector<BSM_node> BSM_node_list_;
   double MA_gain_ = .1;
+
+  bool fake_lidar_ = false;
+  std::string pcd_FILENAME_, lidar_topic_sub_, lidar_topic_pub_;
+
+  pcl::PointCloud<pcl::PointXYZ>::Ptr dummy_pc_ = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
+  sensor_msgs::PointCloud2 pcd_msg_;
+  Eigen::Affine3f transform_ = Eigen::Affine3f::Identity();
+
 };
 
 int main(int argc, char** argv) {

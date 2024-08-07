@@ -1,0 +1,13 @@
+<launch>
+  <arg name="fake_lidar" default="true"/>
+  <arg name="pcd_file" default="lead_vehicle.pcd"/>
+  <arg name="lidar_topic_listener" default="/points_raw"/>
+  <arg name="lidar_topic_publisher" default="/points_mod"/>
+
+  <node pkg="apsrc_v2x_viz" type="apsrc_v2x_viz_node" name="apsrc_v2x_viz" output="screen" >
+    <param name="fake_lidar" value="$(arg fake_lidar)"/>
+    <param name="pcd_file" value="$(find apsrc_v2x_viz)/$(arg pcd_file)"/>
+    <param name="lidar_topic_listener" value="$(arg lidar_topic_listener)"/>
+    <param name="lidar_topic_publisher" value="$(arg lidar_topic_publisher)"/>
+  </node>
+</launch>
