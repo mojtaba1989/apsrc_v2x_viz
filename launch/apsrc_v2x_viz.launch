@@ -1,13 +1,34 @@
 <launch>
+  <!-- Enablers -->
+  <arg name="v2x_viz" default="true"/>
+  <arg name="v2x_spatnmap" default="true"/>
+
+  <!-- Fake lidar injector nod params -->
   <arg name="fake_lidar" default="true"/>
   <arg name="pcd_file" default="lead_vehicle.pcd"/>
   <arg name="lidar_topic_listener" default="/points_raw"/>
   <arg name="lidar_topic_publisher" default="/points_mod"/>
 
-  <node pkg="apsrc_v2x_viz" type="apsrc_v2x_viz_node" name="apsrc_v2x_viz" output="screen" >
+  <!-- SPAT and MAP mixer node -->
+  <arg name="spat_topic" default="/v2x/SPaT"/>
+  <arg name="map_topic" default="/v2x/MapData"/>
+  <arg name="gps_topic" default="/gps/gps"/>
+  <arg name="search_radius" default="2.0"/>
+  <arg name="min_acceptable_distance" default="0.5"/>
+
+  <node if="$(arg v2x_viz)" pkg="apsrc_v2x_viz" type="apsrc_v2x_viz_node" name="apsrc_v2x_viz" output="screen" >
     <param name="fake_lidar" value="$(arg fake_lidar)"/>
     <param name="pcd_file" value="$(find apsrc_v2x_viz)/$(arg pcd_file)"/>
     <param name="lidar_topic_listener" value="$(arg lidar_topic_listener)"/>
     <param name="lidar_topic_publisher" value="$(arg lidar_topic_publisher)"/>
+  </node>
+
+  <node if="$(arg v2x_spatnmap)" pkg="apsrc_v2x_viz" type="apsrc_v2x_spatnmap_node" name="apsrc_spatnmap_viz" output="screen" >
+    <param name="spat_topic" value="$(arg spat_topic)"/>
+    <param name="map_topic" value="$(arg map_topic)"/>
+    <param name="gps_topic" value="$(arg gps_topic)"/>
+    <param name="search_radius" value="$(arg search_radius)"/>
+    <param name="min_acceptable_distance" value="$(arg min_acceptable_distance)"/>
+>
   </node>
 </launch>

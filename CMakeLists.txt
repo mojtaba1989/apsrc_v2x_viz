@@ -11,6 +11,8 @@ set(catkin_deps
     geographic_msgs
     geodesy
     pcl_ros
+    autoware_msgs
+    std_msgs
 )
 
 find_package(Eigen3 REQUIRED)
@@ -32,8 +34,14 @@ target_link_libraries(
   ${catkin_LIBRARIES}
 )
 
-install(TARGETS
-  ${PROJECT_NAME}_node
+add_executable(apsrc_v2x_spatnmap_node src/v2x_spatnmap_node.cpp)
+target_link_libraries(
+  apsrc_v2x_spatnmap_node 
+  ${catkin_LIBRARIES}
+)
+
+install(
+  TARGETS apsrc_v2x_viz_node apsrc_v2x_spatnmap_node 
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
