@@ -42,7 +42,7 @@ public:
     if (fake_lidar_){
       lidar_mod_pub_ = nh_.advertise<sensor_msgs::PointCloud2>(lidar_topic_pub_, 1, true);
       lidar_sub_     = nh_.subscribe(lidar_topic_sub_, 10, &BsmSubscriber::lidarCallback, this);
-      timer_ = nh_.createTimer(ros::Duration(1/cleanup_freq_), ros::Duration(1/frequency_), std::bind(&BsmSubscriber::cleanUpCallback, this));
+      timer_ = nh_.createTimer(ros::Duration(1/cleanup_freq_), std::bind(&BsmSubscriber::cleanUpCallback, this));
     }
     
   }
