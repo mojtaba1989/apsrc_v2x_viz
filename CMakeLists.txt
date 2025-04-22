@@ -40,8 +40,15 @@ target_link_libraries(
   ${catkin_LIBRARIES}
 )
 
+
+add_executable(apsrc_v2x_virtual_map_node src/v2x_virtual_map.cpp)
+target_link_libraries(
+  apsrc_v2x_virtual_map_node 
+  ${catkin_LIBRARIES}
+)
+
 install(
-  TARGETS apsrc_v2x_viz_node apsrc_v2x_spatnmap_node 
+  TARGETS apsrc_v2x_viz_node apsrc_v2x_spatnmap_node apsrc_v2x_virtual_map_node
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}

@@ -2,18 +2,26 @@
   <!-- Fake lidar injector nod params -->
   <arg name="v2x_viz" default="true"/>
   <arg name="fake_lidar" default="true"/>
+  <arg name="fake_lidar_topic" default="/points_raw"/>
   <arg name="pcd_file" default="lead_vehicle.pcd"/>
   <arg name="lidar_topic_listener" default="/points_raw"/>
   <arg name="lidar_topic_publisher" default="/points_mod"/>
   <arg name="MA_gain" default="0.1"/>
+  <arg name="cleanup_freq" default="1.0"/>
 
   <!-- SPAT and MAP mixer node -->
-  <arg name="v2x_spatnmap" default="true"/>
+  <arg name="v2x_spatnmap" default="false"/>
   <arg name="spat_topic" default="/v2x/SPaT"/>
   <arg name="map_topic" default="/v2x/MapData"/>
   <arg name="gps_topic" default="/gps/gps"/>
   <arg name="search_radius" default="2.0"/>
   <arg name="min_acceptable_distance" default="0.5"/>
+
+
+  <!-- Virtual Map -->
+  <arg name="virtual_map" default="false"/>
+  <arg name="map_file" default="config/virtual_map.yaml"/>
+  <arg name="loop" default="false"/>
 
   <node if="$(arg v2x_viz)" pkg="apsrc_v2x_viz" type="apsrc_v2x_viz_node" name="apsrc_v2x_viz" output="screen" >
     <param name="fake_lidar" value="$(arg fake_lidar)"/>
@@ -21,6 +29,7 @@
     <param name="lidar_topic_listener" value="$(arg lidar_topic_listener)"/>
     <param name="lidar_topic_publisher" value="$(arg lidar_topic_publisher)"/>
     <param name="MA_gain" value="$(arg MA_gain)"/>
+    <param name="cleanup_freq" value="$(arg cleanup_freq)"/>
   </node>
 
   <node if="$(arg v2x_spatnmap)" pkg="apsrc_v2x_viz" type="apsrc_v2x_spatnmap_node" name="apsrc_spatnmap_viz" output="screen" >
@@ -29,6 +38,12 @@
     <param name="gps_topic" value="$(arg gps_topic)"/>
     <param name="search_radius" value="$(arg search_radius)"/>
     <param name="min_acceptable_distance" value="$(arg min_acceptable_distance)"/>
->
   </node>
+
+  <node if="$(arg virtual_map)" pkg="apsrc_v2x_viz" type="apsrc_v2x_virtual_map_node" name="apsrc_v2x_virtual_map_node" output="screen" >
+    <param name="map_file" value="$(find apsrc_v2x_viz)/$(arg map_file)"/>
+    <param name="loop" value="$(arg loop)"/>
+  </node>
+
+
 </launch>

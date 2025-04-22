@@ -15,6 +15,8 @@
 
 struct BSM_node
 {
+  ROS::Time stamp;
+  bool active;
   std::string id;
   double x;
   double y;
@@ -33,12 +35,29 @@ public:
     gps_sub_ = nh_.subscribe(gps_topic_, 10, &BsmSubscriber::gpsCallback, this);
     imu_sub_ = nh_.subscribe(imu_topic_, 10, &BsmSubscriber::imuCallback, this);
     marker_pub_ = nh_.advertise<visualization_msgs::Marker>("v2x/viz/markers", 1, true);
+    
 
     if (fake_lidar_){
-      lidar_mod_pub_ = nh_.advertise<sensor_msgs::PointCloud2>(lidar_topic_pub_, 1, this);
+      lidar_mod_pub_ = nh_.advertise<sensor_msgs::PointCloud2>(lidar_topic_pub_, 1, true);
       lidar_sub_     = nh_.subscribe(lidar_topic_sub_, 10, &BsmSubscriber::lidarCallback, this);
+      timer_ = nh_.createTimer(ros::Duration(1/cleanup_freq_), ros::Duration(1/frequency_), std::bind(&BsmSubscriber::cleanUpCallback, this));
     }
     
+  }
+
+  void cleanUpCallback()
+  {
+    if (BSM_node_list_.size() == 0){
+      return;
+    }
+
+    for (size_t idx = 0; idx < BSM_node_list_.size(); ++idx){
+      if (ROS::Time::now().toSec() - BSM_node_list_[idx].stamp.toSec() <= 1/cleanup_freq_){
+        BSM_node_list_[idx].active = true;
+      } else {
+        BSM_node_list_[idx].active = false;
+      }
+    }
   }
 
   void loadParams()
@@ -50,6 +69,7 @@ public:
     nh_.param<std::string>("bsm_topic", bsm_topic_, "/v2x/BasicSafetyMessage");
     nh_.param<std::string>("gps_topic", gps_topic_, "/gps/gps");
     nh_.param<std::string>("imu_topic", imu_topic_, "/gps/imu");
+    nh_.param("cleanup_freq", cleanup_freq_, 1.0);
     nh_.param("MA_gain", MA_gain_, 0.1);
     ROS_INFO("Parameters Loaded");
 
@@ -102,7 +122,6 @@ public:
       }
       BSM_node_list_.push_back(node);
       node_idx = BSM_node_list_.size() - 1;
-      
     }
 
     geographic_msgs::GeoPoint geo_target = {};
@@ -126,6 +145,8 @@ public:
     BSM_node_list_[node_idx].y = utm_target.northing;
     BSM_node_list_[node_idx].abs_x = x;
     BSM_node_list_[node_idx].abs_y = y;
+    BSM_node_list_[node_idx].stamp = ROS::Time::now();
+    BSM_node_list_[node_idx].active = true;
 
     // visualization_msgs::Marker marker = {};
     // marker.header.frame_id = "base_link";
@@ -185,6 +206,9 @@ public:
 
     if (BSM_node_list_.size()> 0){
       for (size_t bsm_idx = 0; bsm_idx<BSM_node_list_.size();bsm_idx++){
+        if (!BSM_node_list_[bsm_idx].active){
+          continue;
+        }
         float z = -1.98;
         transform_.translation() << BSM_node_list_[bsm_idx].abs_x, BSM_node_list_[bsm_idx].abs_y, z;
 
@@ -221,6 +245,8 @@ private:
   sensor_msgs::PointCloud2 pcd_msg_;
   Eigen::Affine3f transform_ = Eigen::Affine3f::Identity();
 
+  float cleanup_freq_ = 1.0;
+  ROS::timer timer_;
 };
 
 int main(int argc, char** argv) {
