@@ -248,7 +248,7 @@ private:
   Eigen::Affine3f transform_ = Eigen::Affine3f::Identity();
 
   float cleanup_freq_ = 1.0;
-  ros::timer timer_;
+  ros::Timer timer_;
 };
 
 int main(int argc, char** argv) {
