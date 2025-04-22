@@ -15,7 +15,7 @@
 
 struct BSM_node
 {
-  ROS::Time stamp;
+  ros::Time stamp;
   bool active;
   std::string id;
   double x;
@@ -54,7 +54,7 @@ public:
     }
 
     for (size_t idx = 0; idx < BSM_node_list_.size(); ++idx){
-      if (ROS::Time::now().toSec() - BSM_node_list_[idx].stamp.toSec() <= 1/cleanup_freq_){
+      if (ros::Time::now().toSec() - BSM_node_list_[idx].stamp.toSec() <= 1/cleanup_freq_){
         BSM_node_list_[idx].active = true;
       } else {
         BSM_node_list_[idx].active = false;
@@ -147,7 +147,7 @@ public:
     BSM_node_list_[node_idx].y = utm_target.northing;
     BSM_node_list_[node_idx].abs_x = x;
     BSM_node_list_[node_idx].abs_y = y;
-    BSM_node_list_[node_idx].stamp = ROS::Time::now();
+    BSM_node_list_[node_idx].stamp = ros::Time::now();
     BSM_node_list_[node_idx].active = true;
 
     // visualization_msgs::Marker marker = {};
@@ -248,7 +248,7 @@ private:
   Eigen::Affine3f transform_ = Eigen::Affine3f::Identity();
 
   float cleanup_freq_ = 1.0;
-  ROS::timer timer_;
+  ros::timer timer_;
 };
 
 int main(int argc, char** argv) {
