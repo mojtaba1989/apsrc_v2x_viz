@@ -13,6 +13,7 @@ set(catkin_deps
     pcl_ros
     autoware_msgs
     std_msgs
+    yaml-cpp
 )
 
 find_package(Eigen3 REQUIRED)
