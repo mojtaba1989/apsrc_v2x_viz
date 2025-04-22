@@ -15,7 +15,7 @@
 
 struct BSM_node
 {
-  ROS::Time stamp;
+  ros::Time stamp;
   bool active;
   std::string id;
   double x;
@@ -30,6 +30,8 @@ class BsmSubscriber {
 public:
   BsmSubscriber(){
     nh_ = ros::NodeHandle();
+    pnh_ = ros::NodeHandle("~");
+
     loadParams();
     bsm_sub_ = nh_.subscribe(bsm_topic_, 10, &BsmSubscriber::bsmCallback, this);
     gps_sub_ = nh_.subscribe(gps_topic_, 10, &BsmSubscriber::gpsCallback, this);
@@ -40,7 +42,7 @@ public:
     if (fake_lidar_){
       lidar_mod_pub_ = nh_.advertise<sensor_msgs::PointCloud2>(lidar_topic_pub_, 1, true);
       lidar_sub_     = nh_.subscribe(lidar_topic_sub_, 10, &BsmSubscriber::lidarCallback, this);
-      timer_ = nh_.createTimer(ros::Duration(1/cleanup_freq_), ros::Duration(1/frequency_), std::bind(&BsmSubscriber::cleanUpCallback, this));
+      timer_ = nh_.createTimer(ros::Duration(1/cleanup_freq_), std::bind(&BsmSubscriber::cleanUpCallback, this));
     }
     
   }
@@ -52,7 +54,7 @@ public:
     }
 
     for (size_t idx = 0; idx < BSM_node_list_.size(); ++idx){
-      if (ROS::Time::now().toSec() - BSM_node_list_[idx].stamp.toSec() <= 1/cleanup_freq_){
+      if (ros::Time::now().toSec() - BSM_node_list_[idx].stamp.toSec() <= 1/cleanup_freq_){
         BSM_node_list_[idx].active = true;
       } else {
         BSM_node_list_[idx].active = false;
@@ -62,15 +64,15 @@ public:
 
   void loadParams()
   {
-    nh_.param("apsrc_v2x_viz/fake_lidar", fake_lidar_, false);
-    nh_.param<std::string>("apsrc_v2x_viz/pcd_file", pcd_FILENAME_, "null.pcd");
-    nh_.param<std::string>("apsrc_v2x_viz/lidar_topic_listener", lidar_topic_sub_, "/points_raw");
-    nh_.param<std::string>("apsrc_v2x_viz/lidar_topic_publisher", lidar_topic_pub_, "/points_mod");
-    nh_.param<std::string>("bsm_topic", bsm_topic_, "/v2x/BasicSafetyMessage");
-    nh_.param<std::string>("gps_topic", gps_topic_, "/gps/gps");
-    nh_.param<std::string>("imu_topic", imu_topic_, "/gps/imu");
-    nh_.param("cleanup_freq", cleanup_freq_, 1.0);
-    nh_.param("MA_gain", MA_gain_, 0.1);
+    pnh_.param("fake_lidar", fake_lidar_, false);
+    pnh_.param<std::string>("pcd_file", pcd_FILENAME_, "null.pcd");
+    pnh_.param<std::string>("lidar_topic_listener", lidar_topic_sub_, "/points_raw");
+    pnh_.param<std::string>("lidar_topic_publisher", lidar_topic_pub_, "/points_mod");
+    pnh_.param<std::string>("bsm_topic", bsm_topic_, "/v2x/BasicSafetyMessage");
+    pnh_.param<std::string>("gps_topic", gps_topic_, "/gps/gps");
+    pnh_.param<std::string>("imu_topic", imu_topic_, "/gps/imu");
+    pnh_.param("cleanup_freq", cleanup_freq_, 1.0);
+    pnh_.param("MA_gain", MA_gain_, 0.1);
     ROS_INFO("Parameters Loaded");
 
     if (!fake_lidar_){
@@ -145,7 +147,7 @@ public:
     BSM_node_list_[node_idx].y = utm_target.northing;
     BSM_node_list_[node_idx].abs_x = x;
     BSM_node_list_[node_idx].abs_y = y;
-    BSM_node_list_[node_idx].stamp = ROS::Time::now();
+    BSM_node_list_[node_idx].stamp = ros::Time::now();
     BSM_node_list_[node_idx].active = true;
 
     // visualization_msgs::Marker marker = {};
@@ -225,7 +227,7 @@ public:
   }
 
 private:
-  ros::NodeHandle nh_;
+  ros::NodeHandle nh_, pnh_;
   ros::Subscriber bsm_sub_, gps_sub_, imu_sub_, lidar_sub_;
   ros::Publisher marker_pub_, lidar_mod_pub_;
 
@@ -245,8 +247,8 @@ private:
   sensor_msgs::PointCloud2 pcd_msg_;
   Eigen::Affine3f transform_ = Eigen::Affine3f::Identity();
 
-  float cleanup_freq_ = 1.0;
-  ROS::timer timer_;
+  double cleanup_freq_ = 1.0;
+  ros::Timer timer_;
 };
 
 int main(int argc, char** argv) {
