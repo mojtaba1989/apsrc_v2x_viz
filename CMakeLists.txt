@@ -13,12 +13,12 @@ set(catkin_deps
     pcl_ros
     autoware_msgs
     std_msgs
-    yaml-cpp
 )
 
 find_package(Eigen3 REQUIRED)
 find_package(catkin REQUIRED ${catkin_deps})
 find_package(Boost REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 catkin_package(
   CATKIN_DEPENDS ${catkin_deps}

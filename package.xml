@@ -17,5 +17,4 @@
   <depend>roslib</depend>
   <depend>geometry_msgs</depend>
   <depend>pcl_ros</depend>
-  <depend>yaml-cpp</depend>
 </package>
