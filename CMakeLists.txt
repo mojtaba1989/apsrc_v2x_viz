@@ -3,15 +3,15 @@ project(apsrc_v2x_viz)
 
 set(catkin_deps
     apsrc_msgs
-    geometry_msgs
+    # geometry_msgs
     roscpp
     roslib
     std_msgs
-    visualization_msgs
-    geographic_msgs
-    geodesy
-    pcl_ros
-    autoware_msgs
+    # visualization_msgs
+    # geographic_msgs
+    # geodesy
+    # pcl_ros
+    # autoware_msgs
     std_msgs
 )
 
@@ -28,17 +28,17 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(apsrc_v2x_viz_node src/v2x_viz_node.cpp)
-target_link_libraries(
-  apsrc_v2x_viz_node 
-  ${catkin_LIBRARIES}
-)
+# add_executable(apsrc_v2x_viz_node src/v2x_viz_node.cpp)
+# target_link_libraries(
+#   apsrc_v2x_viz_node 
+#   ${catkin_LIBRARIES}
+# )
 
-add_executable(apsrc_v2x_spatnmap_node src/v2x_spatnmap_node.cpp)
-target_link_libraries(
-  apsrc_v2x_spatnmap_node 
-  ${catkin_LIBRARIES}
-)
+# add_executable(apsrc_v2x_spatnmap_node src/v2x_spatnmap_node.cpp)
+# target_link_libraries(
+#   apsrc_v2x_spatnmap_node 
+#   ${catkin_LIBRARIES}
+# )
 
 
 add_executable(apsrc_v2x_virtual_map_node src/v2x_virtual_map.cpp)
@@ -48,7 +48,8 @@ target_link_libraries(
 )
 
 install(
-  TARGETS apsrc_v2x_viz_node apsrc_v2x_spatnmap_node apsrc_v2x_virtual_map_node
+  # TARGETS apsrc_v2x_viz_node apsrc_v2x_virtual_map_node
+  TARGETS apsrc_v2x_virtual_map_node
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
