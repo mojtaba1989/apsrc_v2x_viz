@@ -247,7 +247,7 @@ private:
   sensor_msgs::PointCloud2 pcd_msg_;
   Eigen::Affine3f transform_ = Eigen::Affine3f::Identity();
 
-  float cleanup_freq_ = 1.0;
+  double cleanup_freq_ = 1.0;
   ros::Timer timer_;
 };
 
