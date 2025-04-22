@@ -59,6 +59,7 @@ public:
     }
 
     void loadVirtualMap(){
+        ROS_INFO("Loading Virtual Map%s", virtual_map_file_.c_str());
         // Load the virtual map from the YAML file
         YAML::Node virtual_map = YAML::LoadFile(virtual_map_file_);
         ROS_INFO("File Loaded%s", virtual_map_file_.c_str());
