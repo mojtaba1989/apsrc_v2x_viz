@@ -50,6 +50,7 @@ target_link_libraries(
 
 install(
   TARGETS apsrc_v2x_viz_node apsrc_v2x_virtual_map_node apsrc_v2x_spatnmap_node
+  # TARGETS apsrc_v2x_virtual_map_node
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}

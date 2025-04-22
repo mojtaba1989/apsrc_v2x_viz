@@ -1,6 +1,6 @@
 <launch>
   <!-- Fake lidar injector nod params -->
-  <arg name="v2x_viz" default="true"/>
+  <arg name="v2x_viz" default="false"/>
   <arg name="fake_lidar" default="true"/>
   <arg name="fake_lidar_topic" default="/points_raw"/>
   <arg name="pcd_file" default="lead_vehicle.pcd"/>
@@ -19,7 +19,7 @@
 
 
   <!-- Virtual Map -->
-  <arg name="virtual_map" default="false"/>
+  <arg name="virtual_map" default="true"/>
   <arg name="map_file" default="config/virtual_map.yaml"/>
   <arg name="loop" default="false"/>
 

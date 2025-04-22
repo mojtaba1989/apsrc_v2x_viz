@@ -61,16 +61,17 @@ public:
     void loadVirtualMap(){
         ROS_INFO("Loading Virtual Map%s", virtual_map_file_.c_str());
         // Load the virtual map from the YAML file
-        YAML::Node virtual_map = YAML::LoadFile(virtual_map_file_);
+        YAML::Node config = YAML::LoadFile(virtual_map_file_);
         ROS_INFO("File Loaded%s", virtual_map_file_.c_str());
 
         // Check if the file was loaded successfully
-        if (!virtual_map.IsDefined()) {
+        if (!config.IsDefined()) {
             ROS_ERROR("Failed to load virtual map file: %s", virtual_map_file_.c_str());
             exit(1);
         }
 
         virtual_intersections_.clear();
+        YAML::Node virtual_map = config["virtual_map"];
 
 
         // Parse the virtual map data
