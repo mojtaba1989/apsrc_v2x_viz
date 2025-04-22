@@ -1,6 +1,12 @@
-a1:
-  latitude: 0.0
-  longitude: 0.0
-  intersection_id: 0
-  signal_group: 1
-  waypoint_id: 0
+virtual_map:
+  - intersection_id: 1
+    signal_group: 101
+    waypoint_id: 5001
+    latitude: 37.7749
+    longitude: -122.4194
+
+  - intersection_id: 2
+    signal_group: 102
+    waypoint_id: 5002
+    latitude: 37.7750
+    longitude: -122.4195
