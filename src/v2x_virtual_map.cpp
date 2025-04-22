@@ -149,3 +149,11 @@ public:
         return;
     }
 };
+
+
+int main(int argc, char** argv) {
+    ros::init(argc, argv, "v2x_virtual_map_node");
+    VirtualMap virtual_map_node;
+    ros::spin();
+    return 0;
+}
