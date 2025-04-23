@@ -2,11 +2,20 @@ virtual_map:
   - intersection_id: 1
     signal_group: 101
     waypoint_id: 5001
+    departure_id: 1
     latitude: 37.7749
     longitude: -122.4194
+    cycletime_red: 30
+    cycletime_yellow: 5
+    cycletime_green: 30
+    
 
   - intersection_id: 2
-    signal_group: 102
+    signal_group: 103
     waypoint_id: 5002
-    latitude: 37.7750
-    longitude: -122.4195
+    departure_id: 1
+    latitude: 37.7749
+    longitude: -122.4194
+    cycletime_red: 30
+    cycletime_yellow: 5
+    cycletime_green: 30

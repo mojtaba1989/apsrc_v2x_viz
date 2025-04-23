@@ -14,8 +14,12 @@ struct virtual_intersection
     uint16_t intersection_id;
     int64_t signal_group;
     int32_t waypoint_id;
+    int32_t departure_id;
     float latitude;
     float longitude;
+    float cycletime_red;
+    float cycletime_yellow;
+    float cycletime_green;
 };
 
 
@@ -78,16 +82,24 @@ public:
             uint16_t intersection_id = intersection["intersection_id"].as<uint16_t>();
             int64_t signal_group = intersection["signal_group"].as<int64_t>();
             int32_t waypoint_id = intersection["waypoint_id"].as<int32_t>();
+            int32_t departure_id = intersection["departure_id"].as<int32_t>();
             float latitude = intersection["latitude"].as<float>();
             float longitude = intersection["longitude"].as<float>();
+            float cycletime_red = intersection["cycletime_red"].as<float>();
+            float cycletime_yellow = intersection["cycletime_yellow"].as<float>();
+            float cycletime_green = intersection["cycletime_green"].as<float>();
 
             // Store the data in a suitable data structure
             virtual_intersection vi;
             vi.intersection_id = intersection_id;
             vi.signal_group = signal_group;
             vi.waypoint_id = waypoint_id;
+            vi.departure_id = departure_id;
             vi.latitude = latitude;
             vi.longitude = longitude;
+            vi.cycletime_red = cycletime_red;
+            vi.cycletime_yellow = cycletime_yellow;
+            vi.cycletime_green = cycletime_green;
             virtual_intersections_.push_back(vi);
         }
 
@@ -129,8 +141,13 @@ public:
                 if (m.signalGroup == virtual_intersections_[closest_intersection_].signal_group){
                     apsrc_msgs::SPaTnMAP msg;
                     msg.header.stamp = ros::Time::now();
+                    msg.intersection_id = virtual_intersections_[closest_intersection_].intersection_id;
                     msg.stop_waypoint = virtual_intersections_[closest_intersection_].waypoint_id;
+                    msg.depart_waypoint = virtual_intersections_[closest_intersection_].departure_id;
                     msg.distance_to_stop = msg.stop_waypoint - closest_waypoint_;
+                    msg.cycle_time_red = virtual_intersections_[closest_intersection_].cycletime_red;
+                    msg.cycle_time_yellow = virtual_intersections_[closest_intersection_].cycletime_yellow;
+                    msg.cycle_time_green = virtual_intersections_[closest_intersection_].cycletime_green;
 
                     // Calculate time to stop
                     time_t whole_seconds = static_cast<time_t>(std::floor(msg.header.stamp.toSec()));
