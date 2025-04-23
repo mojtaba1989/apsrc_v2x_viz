@@ -1,9 +1,9 @@
 <launch>
   <!-- Fake lidar injector nod params -->
-  <arg name="v2x_viz" default="false"/>
+  <arg name="v2x_viz" default="true"/>
   <arg name="fake_lidar" default="true"/>
   <arg name="fake_lidar_topic" default="/points_raw"/>
-  <arg name="pcd_file" default="lead_vehicle.pcd"/>
+  <arg name="pcd_file" default="lead_vehicle_intensity.pcd"/>
   <arg name="lidar_topic_listener" default="/points_raw"/>
   <arg name="lidar_topic_publisher" default="/points_mod"/>
   <arg name="MA_gain" default="0.1"/>

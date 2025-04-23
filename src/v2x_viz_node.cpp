@@ -23,7 +23,7 @@ struct BSM_node
   double yaw;
   double abs_x;
   double abs_y;
-  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::PointCloud<pcl::PointXYZI>::Ptr cloud = pcl::PointCloud<pcl::PointXYZI>::Ptr(new pcl::PointCloud<pcl::PointXYZI>);
 };
 
 class BsmSubscriber {
@@ -80,7 +80,7 @@ public:
       return;
     }
 
-    if (pcl::io::loadPCDFile<pcl::PointXYZ>(pcd_FILENAME_, *dummy_pc_) == -1)
+    if (pcl::io::loadPCDFile<pcl::PointXYZI>(pcd_FILENAME_, *dummy_pc_) == -1)
     {
       ROS_WARN("Couldn't read PCD file \n");
       fake_lidar_ = false;
@@ -120,7 +120,7 @@ public:
       BSM_node node;
       node.id = msg->BSMCore.ID;
       if (fake_lidar_){
-        pcl::io::loadPCDFile<pcl::PointXYZ>(pcd_FILENAME_, *node.cloud);
+        pcl::io::loadPCDFile<pcl::PointXYZI>(pcd_FILENAME_, *node.cloud);
       }
       BSM_node_list_.push_back(node);
       node_idx = BSM_node_list_.size() - 1;
@@ -202,9 +202,9 @@ public:
 
   void lidarCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
   {
-    pcl::PointCloud<pcl::PointXYZ>::Ptr raw(new pcl::PointCloud<pcl::PointXYZ>());
+    pcl::PointCloud<pcl::PointXYZI>::Ptr raw(new pcl::PointCloud<pcl::PointXYZI>());
     pcl::fromROSMsg(*msg, *raw);
-    pcl::PointCloud<pcl::PointXYZ> combined_cloud = *raw;
+    pcl::PointCloud<pcl::PointXYZI> combined_cloud = *raw;
 
     if (BSM_node_list_.size()> 0){
       for (size_t bsm_idx = 0; bsm_idx<BSM_node_list_.size();bsm_idx++){
@@ -214,7 +214,7 @@ public:
         float z = -1.98;
         transform_.translation() << BSM_node_list_[bsm_idx].abs_x, BSM_node_list_[bsm_idx].abs_y, z;
 
-        pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud(new pcl::PointCloud<pcl::PointXYZ>());
+        pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_cloud(new pcl::PointCloud<pcl::PointXYZI>());
         pcl::transformPointCloud(*BSM_node_list_[bsm_idx].cloud, *transformed_cloud, transform_);
 
         combined_cloud += *(transformed_cloud);
@@ -243,7 +243,7 @@ private:
   bool fake_lidar_ = false;
   std::string pcd_FILENAME_, lidar_topic_sub_, lidar_topic_pub_;
 
-  pcl::PointCloud<pcl::PointXYZ>::Ptr dummy_pc_ = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::PointCloud<pcl::PointXYZI>::Ptr dummy_pc_ = pcl::PointCloud<pcl::PointXYZI>::Ptr(new pcl::PointCloud<pcl::PointXYZI>);
   sensor_msgs::PointCloud2 pcd_msg_;
   Eigen::Affine3f transform_ = Eigen::Affine3f::Identity();
 
