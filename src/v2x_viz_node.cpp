@@ -12,6 +12,9 @@
 #include <pcl/common/transforms.h>
 #include <Eigen/Dense>
 
+#include <derived_object_msgs/ObjectWithCovarianceArray.h>
+#include <derived_object_msgs/ObjectWithCovariance.h>
+
 
 struct BSM_node
 {
@@ -23,6 +26,7 @@ struct BSM_node
   double yaw;
   double abs_x;
   double abs_y;
+  double speed;
   pcl::PointCloud<pcl::PointXYZI>::Ptr cloud = pcl::PointCloud<pcl::PointXYZI>::Ptr(new pcl::PointCloud<pcl::PointXYZI>);
 };
 
@@ -43,6 +47,9 @@ public:
       lidar_mod_pub_ = nh_.advertise<sensor_msgs::PointCloud2>(lidar_topic_pub_, 1, true);
       lidar_sub_     = nh_.subscribe(lidar_topic_sub_, 10, &BsmSubscriber::lidarCallback, this);
       timer_ = nh_.createTimer(ros::Duration(1/cleanup_freq_), std::bind(&BsmSubscriber::cleanUpCallback, this));
+      radar_sub_ = nh_.subscribe("/radar_fc/as_tx/objects", 10, &BsmSubscriber::radarCallback, this);
+      radar_pub_ = nh_.advertise<derived_object_msgs::ObjectWithCovarianceArray>("/radar_mod", 1, true);
+      velocity_sub_ = nh_.subscribe("/current_velocity", 10, &BsmSubscriber::velocityCallback, this);
     }
     
   }
@@ -76,7 +83,6 @@ public:
     ROS_INFO("Parameters Loaded");
 
     if (!fake_lidar_){
-      ROS_INFO("%s", pcd_FILENAME_.c_str());
       return;
     }
 
@@ -98,6 +104,10 @@ public:
     geo_ego.longitude = static_cast<double>(msg->longitude);
     geodesy::UTMPoint utm_ego(geo_ego);
     utm_ego_ = utm_ego;
+  }
+
+  void velocityCallback(const geometry_msgs::TwistStamped::ConstPtr& msg){
+    velocity_ = msg->twist.linear.x;
   }
 
   void imuCallback(const sensor_msgs::Imu::ConstPtr& msg){
@@ -149,6 +159,8 @@ public:
     BSM_node_list_[node_idx].abs_y = y;
     BSM_node_list_[node_idx].stamp = ros::Time::now();
     BSM_node_list_[node_idx].active = true;
+    BSM_node_list_[node_idx].speed = msg->BSMCore.Speed;
+
 
     // visualization_msgs::Marker marker = {};
     // marker.header.frame_id = "base_link";
@@ -226,12 +238,52 @@ public:
     return;
   }
 
+  void radarCallback(const derived_object_msgs::ObjectWithCovarianceArray::ConstPtr& msg)
+  {
+    derived_object_msgs::ObjectWithCovarianceArray mod = *msg;
+    uint32_t last_id = 0;
+    for (auto& obj : mod.objects){
+      if (obj.id > last_id){
+        last_id = obj.id;
+      }
+    }
+    if (BSM_node_list_.size()> 0){
+      for (size_t bsm_idx = 0; bsm_idx<BSM_node_list_.size();bsm_idx++){
+        if (!BSM_node_list_[bsm_idx].active){
+          continue;
+        }
+
+        if (BSM_node_list_[bsm_idx].abs_x < 0 || abs(BSM_node_list_[bsm_idx].abs_y) > 5){
+          continue;
+        }
+
+        derived_object_msgs::ObjectWithCovariance tmp = {};
+        tmp.header.frame_id = "radar";
+        tmp.id = last_id + 1;
+        tmp.pose.pose.position.x = BSM_node_list_[bsm_idx].abs_x;
+        tmp.pose.pose.position.y = BSM_node_list_[bsm_idx].abs_y;
+        tmp.pose.pose.position.z = 0;
+        tmp.pose.pose.orientation.x = 0;
+        tmp.pose.pose.orientation.y = 0;
+        tmp.pose.pose.orientation.z = 0;
+        tmp.pose.pose.orientation.w = 1;
+        tmp.velocity.twist.linear.x = BSM_node_list_[bsm_idx].speed * cos(BSM_node_list_[bsm_idx].yaw) - velocity_;
+
+        mod.objects.push_back(tmp);
+      }
+    }
+
+    radar_pub_.publish(mod);
+  }
+
 private:
   ros::NodeHandle nh_, pnh_;
-  ros::Subscriber bsm_sub_, gps_sub_, imu_sub_, lidar_sub_;
+  ros::Subscriber bsm_sub_, gps_sub_, imu_sub_, lidar_sub_, radar_sub_, velocity_sub_;
   ros::Publisher marker_pub_, lidar_mod_pub_;
+  ros::Publisher radar_pub_;
 
   std::string gps_topic_, imu_topic_, bsm_topic_;
+  std::string radar_topic_;
 
   geodesy::UTMPoint utm_ego_;
   gps_common::GPSFix loc_;
@@ -239,6 +291,7 @@ private:
 
   std::vector<BSM_node> BSM_node_list_;
   double MA_gain_ = .1;
+  double velocity_ = 0.0;
 
   bool fake_lidar_ = false;
   std::string pcd_FILENAME_, lidar_topic_sub_, lidar_topic_pub_;
