@@ -20,6 +20,7 @@ struct virtual_intersection
     float cycletime_red;
     float cycletime_yellow;
     float cycletime_green;
+    float time_gap;
 };
 
 
@@ -88,6 +89,7 @@ public:
             float cycletime_red = intersection["cycletime_red"].as<float>();
             float cycletime_yellow = intersection["cycletime_yellow"].as<float>();
             float cycletime_green = intersection["cycletime_green"].as<float>();
+            float time_gap = intersection["time_gap"].as<float>();
 
             // Store the data in a suitable data structure
             virtual_intersection vi;
@@ -100,6 +102,7 @@ public:
             vi.cycletime_red = cycletime_red;
             vi.cycletime_yellow = cycletime_yellow;
             vi.cycletime_green = cycletime_green;
+            vi.time_gap = time_gap;
             virtual_intersections_.push_back(vi);
         }
 
@@ -156,7 +159,7 @@ public:
                     std::tm* time_info = std::gmtime(&whole_seconds);
                     int seconds_since_hour = time_info->tm_min * 60 + time_info->tm_sec;
                     double total_seconds_of_hour = seconds_since_hour + fractional_part;
-                    msg.time_to_stop = m.stateTimeSpeed[0].minEndTime - total_seconds_of_hour;
+                    msg.time_to_stop = m.stateTimeSpeed[0].minEndTime - total_seconds_of_hour + virtual_intersections_[closest_intersection_].time_gap;
                     if (msg.time_to_stop < 0){
                         msg.time_to_stop += 3600;
                     }
