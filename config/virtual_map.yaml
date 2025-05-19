@@ -5,9 +5,11 @@ virtual_map:
     departure_id: 1
     latitude: 37.7749
     longitude: -122.4194
+    time_offset: 0
     cycletime_red: 30
     cycletime_yellow: 5
     cycletime_green: 30
+
     
 
   - intersection_id: 2

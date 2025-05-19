@@ -2,6 +2,9 @@
 #include <vector>
 #include "ros/ros.h"
 #include <mutex>
+#include <geometry_msgs/Point.h>
+#include <autoware_msgs/Lane.h>
+
 #include "apsrc_msgs/SignalPhaseAndTiming.h"
 #include "apsrc_msgs/SPaTnMAP.h"
 #include "std_msgs/Int32.h"
@@ -15,12 +18,48 @@ struct virtual_intersection
     int64_t signal_group;
     int32_t waypoint_id;
     int32_t departure_id;
+    float time_offset;
     float latitude;
     float longitude;
     float cycletime_red;
     float cycletime_yellow;
     float cycletime_green;
 };
+
+double distanceBetweenWaypoints(const int& begin, const int& end) const
+{
+  // Check index
+  if (begin < 0 || begin >= getPrevWaypointsSize() || end < 0 || end >= getPrevWaypointsSize() || begin > end)
+  {
+    ROS_WARN_THROTTLE(1, "Invalid input index range");
+    return 0.0;
+  }
+
+  // Calculate the distance between the waypoints
+  double dist_sum = 0.0;
+  for (int i = begin; i < end; i++)
+  {
+    dist_sum += distanceBetweenPoints(
+      original_waypoints_.waypoints[i].pose.pose.position,
+      original_waypoints_.waypoints[i + 1].pose.pose.position);
+  }
+
+  return dist_sum;
+}
+
+double distanceBetweenPoints(const geometry_msgs::Point& begin, const geometry_msgs::Point& end) const
+{
+  // Calculate the distance between the waypoints
+  tf::Vector3 v1(begin.x, begin.y, begin.z);
+  tf::Vector3 v2(end.x, end.y, end.z);
+
+  return tf::tfDistance(v1, v2);
+}
+
+void VelocitySetPath::resetFlag()
+{
+  set_path_ = false;
+}
 
 
 class V2xVirtualMap
@@ -29,12 +68,15 @@ private:
     ros::NodeHandle nh_, pnh_;
     ros::Subscriber spat_sub_;
     ros::Subscriber closest_waypoint_sub_;
+    ros::Subscriber waypoints_sub_;
     ros::Publisher spatnmap_pub_;
 
     std::mutex wp_mtx_;
 
     std::string virtual_map_file_;
     bool loop_ = false;
+
+    autoware_msgs::Lane base_waypoints_;
 
     int32_t closest_waypoint_;
     std::vector<virtual_intersection> virtual_intersections_;
@@ -50,6 +92,7 @@ public:
         // Subscribers
         closest_waypoint_sub_  = nh_.subscribe("closest_waypoint", 10, &V2xVirtualMap::closestWaypointCallback, this);
         spat_sub_ = nh_.subscribe("/v2x/SPaT", 10, &V2xVirtualMap::spatCallback, this);
+        waypoints_sub_ = nh_.subscribe("base_waypoints", 1, &V2xVirtualMap::baseWaypointCallback, this);
 
         // Publisher(s)
         spatnmap_pub_ = nh_.advertise<apsrc_msgs::SPaTnMAP>("/v2x/SPaTnMAP", 1, true);
@@ -88,6 +131,7 @@ public:
             float cycletime_red = intersection["cycletime_red"].as<float>();
             float cycletime_yellow = intersection["cycletime_yellow"].as<float>();
             float cycletime_green = intersection["cycletime_green"].as<float>();
+            float time_offset = intersection["time_offset"].as<float>();
 
             // Store the data in a suitable data structure
             virtual_intersection vi;
@@ -97,6 +141,7 @@ public:
             vi.departure_id = departure_id;
             vi.latitude = latitude;
             vi.longitude = longitude;
+            vi.time_offset = time_offset;
             vi.cycletime_red = cycletime_red;
             vi.cycletime_yellow = cycletime_yellow;
             vi.cycletime_green = cycletime_green;
@@ -120,7 +165,7 @@ public:
             ROS_WARN("No closest waypoint received");
             return;
         }
-        if (virtual_intersections_[closest_intersection_].waypoint_id <= closest_waypoint_){
+        if (virtual_intersections_[closest_intersection_].departure_id <= closest_waypoint_){
             if (closest_intersection_ +1 < virtual_intersections_.size()){
                 closest_intersection_++;
             } else {
@@ -144,7 +189,8 @@ public:
                     msg.intersection_id = virtual_intersections_[closest_intersection_].intersection_id;
                     msg.stop_waypoint = virtual_intersections_[closest_intersection_].waypoint_id;
                     msg.depart_waypoint = virtual_intersections_[closest_intersection_].departure_id;
-                    msg.distance_to_stop = msg.stop_waypoint - closest_waypoint_;
+                    // msg.distance_to_stop = msg.stop_waypoint - closest_waypoint_;
+                    msg.distance_to_stop = distanceBetweenWaypoints(closest_waypoint_, msg.stop_waypoint);
                     msg.cycle_time_red = virtual_intersections_[closest_intersection_].cycletime_red;
                     msg.cycle_time_yellow = virtual_intersections_[closest_intersection_].cycletime_yellow;
                     msg.cycle_time_green = virtual_intersections_[closest_intersection_].cycletime_green;
@@ -156,7 +202,7 @@ public:
                     std::tm* time_info = std::gmtime(&whole_seconds);
                     int seconds_since_hour = time_info->tm_min * 60 + time_info->tm_sec;
                     double total_seconds_of_hour = seconds_since_hour + fractional_part;
-                    msg.time_to_stop = m.stateTimeSpeed[0].minEndTime - total_seconds_of_hour;
+                    msg.time_to_stop = m.stateTimeSpeed[0].minEndTime - total_seconds_of_hour + virtual_intersections_[closest_intersection_].time_offset;
                     if (msg.time_to_stop < 0){
                         msg.time_to_stop += 3600;
                     }
@@ -166,6 +212,32 @@ public:
             }
         }
         return;
+    }
+
+    void baseWaypointCallback(const autoware_msgs::Lane::ConstPtr& msg)
+    {    
+        std::unique_lock<std::mutex> wp_lock(wp_mtx_);
+        base_waypoints_ = *msg;
+        return;
+    }
+
+    double distanceBetweenWaypoints(const int& begin, const int& end) const
+    {
+        // Check index
+        if (begin < 0 || begin >= base_waypooint.size() || end < 0 || end >= base_waypooint.size() || begin > end)
+        {
+            return -1.0;
+        }
+
+        // Calculate the distance between the waypoints
+        double dist_sum = 0.0;
+        for (int i = begin; i < end; i++)
+        {
+            dist_sum += distanceBetweenPoints(
+            original_waypoints_.waypoints[i].pose.pose.position,
+            original_waypoints_.waypoints[i + 1].pose.pose.position);
+        }
+        return dist_sum;
     }
 };
 
