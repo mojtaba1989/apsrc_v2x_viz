@@ -21,3 +21,4 @@ virtual_map:
     cycletime_red: 30
     cycletime_yellow: 5
     cycletime_green: 30
+    time_gap: 0.0

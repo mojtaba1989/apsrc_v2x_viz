@@ -24,6 +24,7 @@ struct virtual_intersection
     float cycletime_red;
     float cycletime_yellow;
     float cycletime_green;
+    float time_gap;
 };
 
 double distanceBetweenWaypoints(const int& begin, const int& end) const
@@ -145,6 +146,7 @@ public:
             vi.cycletime_red = cycletime_red;
             vi.cycletime_yellow = cycletime_yellow;
             vi.cycletime_green = cycletime_green;
+            vi.time_gap = time_gap;
             virtual_intersections_.push_back(vi);
         }
 
