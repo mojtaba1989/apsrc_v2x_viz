@@ -2,6 +2,7 @@
 #include <vector>
 #include "ros/ros.h"
 #include <mutex>
+#include <tf
 #include <geometry_msgs/Point.h>
 #include <autoware_msgs/Lane.h>
 
@@ -57,6 +58,7 @@ private:
 
     std::string virtual_map_file_;
     bool loop_ = false;
+    bool looped_ = false;
     
     autoware_msgs::Lane base_waypoints_;
     dist_point distance_ref_;
@@ -128,7 +130,6 @@ public:
             vi.cycletime_red = cycletime_red;
             vi.cycletime_yellow = cycletime_yellow;
             vi.cycletime_green = cycletime_green;
-            vi.time_gap = time_gap;
             virtual_intersections_.push_back(vi);
         }
 
@@ -144,27 +145,20 @@ public:
 
     void closestWaypointCallback(const std_msgs::Int32::ConstPtr& msg){
         std::unique_lock<std::mutex> wp_lock(wp_mtx_);
+        looped_ = closest_waypoint_ >= msg->data + 100 ? true : false;
         closest_waypoint_ = msg->data;
         if (closest_waypoint_ == -1){
             ROS_WARN("No closest waypoint received");
             return;
         }
-        if (virtual_intersections_[closest_intersection_].departure_id <= closest_waypoint_){
-            if (closest_intersection_ +1 < virtual_intersections_.size()){
-                closest_intersection_++;
-                distance_ref_.target_id = virtual_intersections_[closest_intersection_].waypoint_id;
-                distance_ref_.waypoint_id = closest_waypoint_;
-                distance_ref_.distance = distanceBetweenWaypoints(closest_waypoint_, virtual_intersections_[closest_intersection_].target_id);
-            } else {
-                if (loop_){
-                    closest_intersection_ = 0;
-                    distance_ref_.target_id = virtual_intersections_[closest_intersection_].waypoint_id;
-                    distance_ref_.waypoint_id = closest_waypoint_;
-                    distance_ref_.distance = distanceBetweenWaypoints(closest_waypoint_, virtual_intersections_[closest_intersection_].target_id);
-                } else {
-                    return;
-                }
-            }
+        if (closest_waypoint_ > virtual_intersections_[virtual_intersections_.size()-1].departure_id){
+            closest_intersection_ = 0;
+            get_distance(true);
+            return;
+        }
+        if (closest_waypoint_ > virtual_intersections_[closest_intersection_].departure_id){
+            closest_intersection_ = (closest_intersection_ + 1) % virtual_intersections_.size();
+            get_distance(false);
         }
         return;
     }
@@ -179,7 +173,6 @@ public:
                     msg.intersection_id = virtual_intersections_[closest_intersection_].intersection_id;
                     msg.stop_waypoint = virtual_intersections_[closest_intersection_].waypoint_id;
                     msg.depart_waypoint = virtual_intersections_[closest_intersection_].departure_id;
-                    // msg.distance_to_stop = msg.stop_waypoint - closest_waypoint_;
                     msg.distance_to_stop = update_distance();
                     msg.cycle_time_red = virtual_intersections_[closest_intersection_].cycletime_red;
                     msg.cycle_time_yellow = virtual_intersections_[closest_intersection_].cycletime_yellow;
@@ -211,24 +204,37 @@ public:
         return;
     }
 
-    double distanceBetweenWaypoints(const int& begin, const int& end) const
+    double distanceBetweenWaypoints(const int& begin, const int& end, bool los)
     {
-        // Check index
-        if (begin < 0 || begin >= base_waypooint.size() || end < 0 || end >= base_waypooint.size())
+        if (base_waypoints_.waypoints.size() == 0)
+        {
+            return std::cast<double>(end - begin);
+        }
+        if (begin < 0 || begin >= base_waypooint.waypoints.size() || end < 0 || end >= base_waypooint.waypoints.size())
         {
             return -1.0;
         }
+        int begin_ = begin;
+        int end_ = end;
 
         int sign = 1;
-        if (begin > end)
+        if (begin_ > end_)
         {
             sign = -1;
-            std::swap(begin, end);
+            int tmp = begin_;
+            begin_ = end_;
+            end_ = tmp;
         }
-
-        // Calculate the distance between the waypoints
         double dist_sum = 0.0;
-        for (int i = begin; i < end; i++)
+        if (los)
+        {
+            // Calculate the distance between the waypoints
+            dist_sum = distanceBetweenPoints(
+            original_waypoints_.waypoints[begin_].pose.pose.position,
+            original_waypoints_.waypoints[end_].pose.pose.position);
+            return dist_sum * sign;
+        }
+        for (int i = begin_; i < end_; i++)
         {
             dist_sum += distanceBetweenPoints(
             original_waypoints_.waypoints[i].pose.pose.position,
@@ -239,8 +245,20 @@ public:
 
     float update_distance()
     {
-        distance_ref_.distance += distanceBetweenWaypoints(closest_waypoint_, distance_ref_.waypoint_id);
+        if (looped_){
+            get_distance(false);
+            return distance_ref_.distance;
+        }
+        distance_ref_.distance -= distanceBetweenWaypoints(closest_waypoint_, distance_ref_.waypoint_id);
         distance_ref_.waypoint_id = closest_waypoint_;
+        return distance_ref_.distance;
+    }
+
+    float get_distance(bool los)
+    {   
+        distance_ref_.waypoint_id = closest_waypoint_;
+        distance_ref_.target_id = virtual_intersections_[closest_intersection_].waypoint_id;
+        distance_ref_.distance = distanceBetweenWaypoints(closest_waypoint_, virtual_intersections_[closest_intersection_].waypoint_id, los);
         return distance_ref_.distance;
     }
 };
