@@ -2,7 +2,7 @@
 #include <vector>
 #include "ros/ros.h"
 #include <mutex>
-#include <tf
+#include <tf/tf.h>
 #include <geometry_msgs/Point.h>
 #include <autoware_msgs/Lane.h>
 
@@ -35,7 +35,7 @@ struct dist_point
     float distance;
 };
 
-double distanceBetweenPoints(const geometry_msgs::Point& begin, const geometry_msgs::Point& end) const
+double distanceBetweenPoints(const geometry_msgs::Point& begin, const geometry_msgs::Point& end)
 {
   // Calculate the distance between the waypoints
   tf::Vector3 v1(begin.x, begin.y, begin.z);
@@ -210,7 +210,7 @@ public:
         {
             return std::cast<double>(end - begin);
         }
-        if (begin < 0 || begin >= base_waypooint.waypoints.size() || end < 0 || end >= base_waypooint.waypoints.size())
+        if (begin < 0 || begin >= base_waypoints_.waypoints.size() || end < 0 || end >= base_waypoints_.waypoints.size())
         {
             return -1.0;
         }
@@ -230,15 +230,15 @@ public:
         {
             // Calculate the distance between the waypoints
             dist_sum = distanceBetweenPoints(
-            original_waypoints_.waypoints[begin_].pose.pose.position,
-            original_waypoints_.waypoints[end_].pose.pose.position);
+            base_waypoints_.waypoints[begin_].pose.pose.position,
+            base_waypoints_.waypoints[end_].pose.pose.position);
             return dist_sum * sign;
         }
         for (int i = begin_; i < end_; i++)
         {
             dist_sum += distanceBetweenPoints(
-            original_waypoints_.waypoints[i].pose.pose.position,
-            original_waypoints_.waypoints[i + 1].pose.pose.position);
+            base_waypoints_.waypoints[i].pose.pose.position,
+            base_waypoints_.waypoints[i + 1].pose.pose.position);
         }
         return dist_sum * sign;
     }
@@ -249,7 +249,7 @@ public:
             get_distance(false);
             return distance_ref_.distance;
         }
-        distance_ref_.distance -= distanceBetweenWaypoints(closest_waypoint_, distance_ref_.waypoint_id);
+        distance_ref_.distance -= distanceBetweenWaypoints(closest_waypoint_, distance_ref_.waypoint_id, false);
         distance_ref_.waypoint_id = closest_waypoint_;
         return distance_ref_.distance;
     }
