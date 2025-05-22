@@ -1,66 +1,66 @@
 virtual_map:
   - intersection_id: 77
     signal_group: 1
-    waypoint_id: 930
+    waypoint_id: 918
     departure_id: 955
     latitude: 42.2462444536
     longitude: -83.5516232303
-    cycletime_red: 30
+    cycletime_red: 37.8
     cycletime_yellow: 5
-    cycletime_green: 30
-    time_offset: 0.1
+    cycletime_green: 40
+    time_offset: 1.0
 
   - intersection_id: 71
     signal_group: 1
-    waypoint_id: 1454
-    departure_id: 1479
+    waypoint_id: 1442
+    departure_id: 1467
     latitude: 42.2478432468
     longitude: -83.5579347435
-    cycletime_red: 30
+    cycletime_red: 37.8
     cycletime_yellow: 5
-    cycletime_green: 30
-    time_offset: 0.1
+    cycletime_green: 40
+    time_offset: 1.0
 
   - intersection_id: 74
     signal_group: 1
-    waypoint_id: 2763
-    departure_id: 2788
+    waypoint_id: 2751
+    departure_id: 2776
     latitude: 42.2383612213
     longitude: -83.5610368699
-    cycletime_red: 30
+    cycletime_red: 37.8
     cycletime_yellow: 5
-    cycletime_green: 30
-    time_offset: 0.1
+    cycletime_green: 40
+    time_offset: 1.0
 
   - intersection_id: 75
     signal_group: 1
-    waypoint_id: 152
-    departure_id: 177
+    waypoint_id: 140
+    departure_id: 165
     latitude: 42.2389574048
     longitude: -83.555306929
-    cycletime_red: 30
+    cycletime_red: 37.8
     cycletime_yellow: 5
-    cycletime_green: 30
-    time_offset: 0.1
+    cycletime_green: 40
+    time_offset: 1.0
 
   - intersection_id: 72
     signal_group: 1
-    waypoint_id: 1860
-    departure_id: 1885
+    waypoint_id: 1848
+    departure_id: 1873
     latitude: 42.2459717597
     longitude: -83.5634809179
-    cycletime_red: 30
+    cycletime_red: 37.8
     cycletime_yellow: 5
-    cycletime_green: 30
-    time_offset: 0.1
-
+    cycletime_green: 40
+    time_offset: 1.0
+  
   - intersection_id: 73
     signal_group: 1
-    waypoint_id: 2356
-    departure_id: 2381
+    waypoint_id: 2344
+    departure_id: 2369
     latitude: 42.2413807474
     longitude: -83.5651885202
-    cycletime_red: 30
+    cycletime_red: 37.8
     cycletime_yellow: 5
-    cycletime_green: 30
-    time_offset: 0.1
+    cycletime_green: 40
+    time_offset: 1.0
