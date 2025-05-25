@@ -8,6 +8,12 @@
   <arg name="lidar_topic_publisher" default="/points_mod"/>
   <arg name="MA_gain" default="0.1"/>
   <arg name="cleanup_freq" default="1.0"/>
+  <arg name="ignore_id" default="00000001"/>
+
+  <!-- Fake RADAR injection -->
+  <arg name="fake_radar" default="true"/>
+  <arg name="radar_freq" default="10.0"/>
+  <arg name="radar_to_baseline" default="4.8"/>
 
   <!-- SPAT and MAP mixer node -->
   <arg name="v2x_spatnmap" default="false"/>

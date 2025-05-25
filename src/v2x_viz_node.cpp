@@ -11,6 +11,8 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/common/transforms.h>
 #include <Eigen/Dense>
+#include <derived_object_msgs/ObjectWithCovarianceArray.h>
+#include <geometry_msgs/TwistStamped.h>
 
 
 struct BSM_node
@@ -23,6 +25,7 @@ struct BSM_node
   double yaw;
   double abs_x;
   double abs_y;
+  double velocity;
   pcl::PointCloud<pcl::PointXYZI>::Ptr cloud = pcl::PointCloud<pcl::PointXYZI>::Ptr(new pcl::PointCloud<pcl::PointXYZI>);
 };
 
@@ -43,6 +46,12 @@ public:
       lidar_mod_pub_ = nh_.advertise<sensor_msgs::PointCloud2>(lidar_topic_pub_, 1, true);
       lidar_sub_     = nh_.subscribe(lidar_topic_sub_, 10, &BsmSubscriber::lidarCallback, this);
       timer_ = nh_.createTimer(ros::Duration(1/cleanup_freq_), std::bind(&BsmSubscriber::cleanUpCallback, this));
+    }
+
+    if (fake_radar_){
+      radar_pub_       = nh_.advertise<derived_object_msgs::ObjectWithCovarianceArray>("/fake_radar/fc", 1, true);
+      current_speed_sub_  = nh_.subscribe("current_velocity", 1, &BsmSubscriber::velocityCallback, this);
+      radar_timer_        = nh_.createTimer(ros::Duration(1/radar_freq_), std::bind(&BsmSubscriber::radarCallback, this));
     }
     
   }
@@ -73,6 +82,10 @@ public:
     pnh_.param<std::string>("imu_topic", imu_topic_, "/gps/imu");
     pnh_.param("cleanup_freq", cleanup_freq_, 1.0);
     pnh_.param("MA_gain", MA_gain_, 0.1);
+    pnh_.param<std::string>("ignore_id", ignore_id_, "00000001");
+    pnh_.param("fake_radar", fake_radar_, false);
+    pnh_.param("radar_freq", radar_freq_, 1.0);
+    pnh_.param("radar_to_baseline", radar_to_baseline_, 4.8);
     ROS_INFO("Parameters Loaded");
 
     if (!fake_lidar_){
@@ -105,6 +118,9 @@ public:
   }
 
   void bsmCallback(const apsrc_msgs::BasicSafetyMessage::ConstPtr& msg) {
+    if (msg->BSMCore.ID == ignore_id_){
+      return;
+    }
     
     int node_idx = -1;
     if (BSM_node_list_.size()>0){
@@ -149,30 +165,7 @@ public:
     BSM_node_list_[node_idx].abs_y = y;
     BSM_node_list_[node_idx].stamp = ros::Time::now();
     BSM_node_list_[node_idx].active = true;
-
-    // visualization_msgs::Marker marker = {};
-    // marker.header.frame_id = "base_link";
-    // marker.header.stamp = msg->header.stamp;
-    // marker.pose.position.x = x;
-    // marker.pose.position.y = y;
-    // marker.pose.position.z = 0;
-    // tf::Quaternion quaternion;
-    // quaternion.setRPY(0, 0, BSM_node_list_[node_idx].yaw);
-    // marker.pose.orientation.x = quaternion.x();
-    // marker.pose.orientation.y = quaternion.y();
-    // marker.pose.orientation.z = quaternion.z();
-    // marker.pose.orientation.w = quaternion.w();
-    // marker.scale.x = 1;
-    // marker.scale.y = 1;
-    // marker.scale.z = 1;
-    // marker.color.a = .5;
-    // marker.color.r = 100;
-    // marker.color.b = 100;
-    // marker.color.g = 100;
-    // marker.type = visualization_msgs::Marker::MESH_RESOURCE;
-    // marker.mesh_resource = "package://detected_objects_visualizer/models/car.dae";
-    // marker_pub_.publish(marker);
-
+    BSM_node_list_[node_idx].velocity = msg->BSMCore.Speed;
 
     visualization_msgs::Marker text; 
     text.header.frame_id = "base_link";
@@ -226,6 +219,38 @@ public:
     return;
   }
 
+  void velocityCallback(const geometry_msgs::TwistStamped::ConstPtr& msg){
+    current_speed_ = msg->twist.linear.x;
+  }
+
+  void radarCallback(){
+    derived_object_msgs::ObjectWithCovarianceArray msg;
+    msg.header.stamp = ros::Time::now();
+    msg.header.frame_id = "radar_fc";
+    if (BSM_node_list_.size() == 0){
+      radar_pub_.publish(msg);
+      return;
+    }
+    for (size_t bsm_idx = 0; bsm_idx<BSM_node_list_.size();bsm_idx++){
+      if (!BSM_node_list_[bsm_idx].active){
+          continue;
+      }
+      derived_object_msgs::ObjectWithCovariance obj;
+      obj.id = static_cast<uint32_t>(std::stoi(BSM_node_list_[bsm_idx].id));
+      obj.pose.pose.position.x = BSM_node_list_[bsm_idx].abs_x - radar_to_baseline_;
+      obj.pose.pose.position.y = BSM_node_list_[bsm_idx].abs_y;
+      obj.pose.pose.position.z = 0.0;
+      obj.pose.pose.orientation.x = 0.0;
+      obj.pose.pose.orientation.y = 0.0;
+      obj.pose.pose.orientation.z = 0.0;
+      obj.pose.pose.orientation.w = 1.0;
+      obj.twist.twist.linear.x = BSM_node_list_[bsm_idx].velocity - current_speed_;
+      msg.objects.push_back(obj);
+    }
+    radar_pub_.publish(msg);
+    return;
+  }
+
 private:
   ros::NodeHandle nh_, pnh_;
   ros::Subscriber bsm_sub_, gps_sub_, imu_sub_, lidar_sub_;
@@ -246,6 +271,16 @@ private:
   pcl::PointCloud<pcl::PointXYZI>::Ptr dummy_pc_ = pcl::PointCloud<pcl::PointXYZI>::Ptr(new pcl::PointCloud<pcl::PointXYZI>);
   sensor_msgs::PointCloud2 pcd_msg_;
   Eigen::Affine3f transform_ = Eigen::Affine3f::Identity();
+  std::string ignore_id_ = "00000001";
+
+  bool fake_radar_ = false;
+  ros::Publisher radar_pub_;
+  ros::Subscriber current_speed_sub_;
+  double current_speed_ = 0.0;
+  ros::Timer radar_timer_;
+  double radar_freq_ = 10.0;
+  double radar_to_baseline_ = 3.0;
+
 
   double cleanup_freq_ = 1.0;
   ros::Timer timer_;

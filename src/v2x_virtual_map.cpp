@@ -206,10 +206,6 @@ public:
 
     double distanceBetweenWaypoints(const int& begin, const int& end, bool los)
     {
-        if (base_waypoints_.waypoints.size() == 0)
-        {
-            return std::cast<double>(end - begin);
-        }
         if (begin < 0 || begin >= base_waypoints_.waypoints.size() || end < 0 || end >= base_waypoints_.waypoints.size())
         {
             return -1.0;
@@ -232,7 +228,7 @@ public:
             dist_sum = distanceBetweenPoints(
             base_waypoints_.waypoints[begin_].pose.pose.position,
             base_waypoints_.waypoints[end_].pose.pose.position);
-            return dist_sum * sign;
+            return dist_sum;
         }
         for (int i = begin_; i < end_; i++)
         {
@@ -249,7 +245,7 @@ public:
             get_distance(false);
             return distance_ref_.distance;
         }
-        distance_ref_.distance -= distanceBetweenWaypoints(closest_waypoint_, distance_ref_.waypoint_id, false);
+        distance_ref_.distance += distanceBetweenWaypoints(closest_waypoint_, distance_ref_.waypoint_id, false);
         distance_ref_.waypoint_id = closest_waypoint_;
         return distance_ref_.distance;
     }
