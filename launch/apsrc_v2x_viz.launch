@@ -19,12 +19,8 @@
   <arg name="v2x_spatnmap" default="false"/>
   <arg name="spat_topic" default="/v2x/SPaT"/>
   <arg name="map_topic" default="/v2x/MapData"/>
-  <arg name="gps_topic" default="/gps/gps"/>
-  <arg name="search_radius" default="2.0"/>
-  <arg name="min_acceptable_distance" default="0.5"/>
+  <arg name="gps_topic" default="/gps/gps"/>#include <apsrc_msgs/BlindSpotC
 
-
-  <!-- Virtual Map -->
   <arg name="virtual_map" default="true"/>
   <arg name="map_file" default="config/virtual_map.yaml"/>
   <arg name="loop" default="false"/>
@@ -38,6 +34,7 @@
   <arg name="blindspot_length" default="15.0"/>
   <arg name="blindspot_max_T" default="4.0"/>
   <arg name="blindspot_step_T" default="0.5"/>
+  <arg name="blindspot_publish_freq" default="1.0"/>
 
 
   <node if="$(arg v2x_viz)" pkg="apsrc_v2x_viz" type="apsrc_v2x_viz_node" name="apsrc_v2x_viz" output="screen" >
@@ -53,6 +50,7 @@
     <param name="blindspot_length" value="$(arg blindspot_length)"/>
     <param name="blindspot_max_T" value="$(arg blindspot_max_T)"/>
     <param name="blindspot_step_T" value="$(arg blindspot_step_T)"/>
+    <param name="blindspot_publish_freq" value="$(arg blindspot_publish_freq)"/>
   </node>
 
   <node if="$(arg v2x_spatnmap)" pkg="apsrc_v2x_viz" type="apsrc_v2x_spatnmap_node" name="apsrc_spatnmap_viz" output="screen" >

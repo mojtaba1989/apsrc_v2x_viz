@@ -1,5 +1,6 @@
 #include "ros/ros.h"
 #include <apsrc_msgs/BasicSafetyMessage.h>
+#include <apsrc_msgs/BlindSpotChecker.h>
 #include "geodesy/utm.h"
 #include <visualization_msgs/Marker.h>
 #include <gps_common/GPSFix.h>
@@ -27,6 +28,7 @@ struct BSM_node
   double abs_y;
   double velocity;
   pcl::PointCloud<pcl::PointXYZI>::Ptr cloud = pcl::PointCloud<pcl::PointXYZI>::Ptr(new pcl::PointCloud<pcl::PointXYZI>);
+  bool within_blindspot = false;
 };
 
 class BsmSubscriber {
@@ -34,12 +36,15 @@ public:
   BsmSubscriber(){
     nh_ = ros::NodeHandle();
     pnh_ = ros::NodeHandle("~");
-
     loadParams();
+
     bsm_sub_ = nh_.subscribe(bsm_topic_, 10, &BsmSubscriber::bsmCallback, this);
     gps_sub_ = nh_.subscribe(gps_topic_, 10, &BsmSubscriber::gpsCallback, this);
     imu_sub_ = nh_.subscribe(imu_topic_, 10, &BsmSubscriber::imuCallback, this);
+
     marker_pub_ = nh_.advertise<visualization_msgs::Marker>("v2x/viz/markers", 1, true);
+    blind_spot_check_pub_ = nh_.advertise<apsrc_msgs::BlindSpotChecker>("/v2x/BlindSpotChecker", 1, true);
+    bs_timer_ = nh_.createTimer(ros::Duration(1/bs_freq_), std::bind(&BsmSubscriber::blindSpotPublisher, this));
     
 
     if (fake_lidar_){
@@ -61,14 +66,13 @@ public:
     if (BSM_node_list_.size() == 0){
       return;
     }
-
+    std::vector<BSM_node> tmp;
     for (size_t idx = 0; idx < BSM_node_list_.size(); ++idx){
       if (ros::Time::now().toSec() - BSM_node_list_[idx].stamp.toSec() <= 1/cleanup_freq_){
-        BSM_node_list_[idx].active = true;
-      } else {
-        BSM_node_list_[idx].active = false;
+        tmp.push_back(BSM_node_list_[idx]);
       }
     }
+    BSM_node_list_ = tmp;
   }
 
   void loadParams()
@@ -95,6 +99,7 @@ public:
     pnh_.param("blindspot_max_T", blindspot_max_T_, 4.0);
     pnh_.param("blindspot_step_T", blindspot_step_T_, 0.5);
     pnh_.param("blindspot_in_lane", blindspot_in_lane_, 1.0);
+    pnh_.param("blindspot_publish_freq", bs_freq_, 1.0);
 
     ROS_INFO("Parameters Loaded");
 
@@ -174,11 +179,10 @@ public:
     BSM_node_list_[node_idx].abs_x = x;
     BSM_node_list_[node_idx].abs_y = y;
     BSM_node_list_[node_idx].stamp = ros::Time::now();
-    BSM_node_list_[node_idx].active = true;
     BSM_node_list_[node_idx].velocity = msg->BSMCore.Speed;
-    bool is_in_blindspot = checkBlindSpot(BSM_node_list_[node_idx].abs_x,
-                                          BSM_node_list_[node_idx].abs_y, 
-                                          BSM_node_list_[node_idx].velocity);
+    BSM_node_list_[node_idx].within_blindspot = checkBlindSpot(BSM_node_list_[node_idx].abs_x,
+                                                               BSM_node_list_[node_idx].abs_y, 
+                                                               BSM_node_list_[node_idx].velocity);
 
     visualization_msgs::Marker text; 
     text.header.frame_id = "base_link";
@@ -195,7 +199,7 @@ public:
     text.scale.x = 1.0;
     text.scale.y = 1.0;
     text.scale.z = 1.0;
-    if (is_in_blindspot){
+    if (BSM_node_list_[node_idx].within_blindspot){
       text.color.r = 1.0;
       text.color.g = 0.0;
       text.color.b = 0.0;
@@ -235,6 +239,24 @@ public:
     return false;
   }
 
+  void blindSpotPublisher(){
+    apsrc_msgs::BlindSpotChecker msg;
+    msg.header.stamp = ros::Time::now();
+    msg.header.frame_id = "lidar";
+    msg.left = false;
+    msg.right = false;
+    for (size_t bsm_idx = 0; bsm_idx<BSM_node_list_.size();bsm_idx++){
+      if (BSM_node_list_[bsm_idx].within_blindspot){
+        if (BSM_node_list_[bsm_idx].y > 0){
+          msg.left = true;
+        } else {
+          msg.right = true;
+        }
+      }
+    }
+    blind_spot_check_pub_.publish(msg);
+  }
+
   void lidarCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
   {
     pcl::PointCloud<pcl::PointXYZI>::Ptr raw(new pcl::PointCloud<pcl::PointXYZI>());
@@ -243,9 +265,6 @@ public:
 
     if (BSM_node_list_.size()> 0){
       for (size_t bsm_idx = 0; bsm_idx<BSM_node_list_.size();bsm_idx++){
-        if (!BSM_node_list_[bsm_idx].active){
-          continue;
-        }
         float z = -1.98;
         transform_.translation() << BSM_node_list_[bsm_idx].abs_x, BSM_node_list_[bsm_idx].abs_y, z;
 
@@ -274,9 +293,6 @@ public:
       return;
     }
     for (size_t bsm_idx = 0; bsm_idx<BSM_node_list_.size();bsm_idx++){
-      if (!BSM_node_list_[bsm_idx].active){
-          continue;
-      }
       derived_object_msgs::ObjectWithCovariance obj;
       obj.id = static_cast<uint32_t>(std::stoi(BSM_node_list_[bsm_idx].id));
       obj.pose.pose.position.x = BSM_node_list_[bsm_idx].abs_x - radar_to_baseline_;
@@ -296,7 +312,7 @@ public:
 private:
   ros::NodeHandle nh_, pnh_;
   ros::Subscriber bsm_sub_, gps_sub_, imu_sub_, lidar_sub_;
-  ros::Publisher marker_pub_, lidar_mod_pub_;
+  ros::Publisher marker_pub_, lidar_mod_pub_, blind_spot_check_pub_;
 
   std::string gps_topic_, imu_topic_, bsm_topic_;
 
@@ -334,6 +350,8 @@ private:
   double blindspot_length_ = 15.0;
   double blindspot_max_T_ = 5.0;
   double blindspot_step_T_ = 0.5;
+  ros::Timer bs_timer_;
+  double bs_freq_ = 1.0;
 };
 
 int main(int argc, char** argv) {
