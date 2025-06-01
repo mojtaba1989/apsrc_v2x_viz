@@ -265,6 +265,38 @@ public:
 
     void spatnmapTimerCallback(){
         std::unique_lock<std::mutex> spat_lock(spatnmap_mtx_);
+        if (ros::Time::now().toSec() > phase_holder_.expiration_time + 1){ // wait 1 second before populating spatnmap based on current phase
+            if ((virtual_intersections_[closest_intersection_].cycletime_red <= 0) ||
+                (virtual_intersections_[closest_intersection_].cycletime_yellow <= 0) ||
+                (virtual_intersections_[closest_intersection_].cycletime_green <= 0)){ // cycle time not set
+                    return;
+            }
+            spatnmap_ref tmp;
+            tmp.intersection_id = phase_holder_.intersection_id;
+            tmp.end_time = -1; // Can be used to check if phase is based on received spat or populated based on cycle time
+            switch (phase_holder_.phase)
+            {
+            case 5: // green to yellow
+                tmp.phase = 7;
+                tmp.expiration_time = ros::Time::now().toSec() + virtual_intersections_[closest_intersection_].cycletime_yellow;
+                tmp.count_down = virtual_intersections_[closest_intersection_].cycletime_yellow;
+                break;
+            case 7: // yellow to red
+                tmp.phase = 3;
+                tmp.expiration_time = ros::Time::now().toSec() + virtual_intersections_[closest_intersection_].cycletime_red;
+                tmp.count_down = virtual_intersections_[closest_intersection_].cycletime_red;
+                break;
+            case 3: // red to green
+                tmp.phase = 5;
+                tmp.expiration_time = ros::Time::now().toSec() + virtual_intersections_[closest_intersection_].cycletime_green;
+                tmp.count_down = virtual_intersections_[closest_intersection_].cycletime_green;
+                break;
+            default: // phase not set
+                return;
+                break;
+            }
+            phase_holder_ = tmp;
+        }
         if (ros::Time::now().toSec() < phase_holder_.expiration_time){
             apsrc_msgs::SPaTnMAP msg;
             msg.header.stamp = ros::Time::now();
