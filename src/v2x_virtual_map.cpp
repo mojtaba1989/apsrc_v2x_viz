@@ -35,6 +35,16 @@ struct dist_point
     float distance;
 };
 
+struct spatnmap_ref
+{
+    uint16_t intersection_id;
+    float count_down;
+    float end_time;
+    uint8_t phase;
+    double expiration_time;
+};
+
+
 double distanceBetweenPoints(const geometry_msgs::Point& begin, const geometry_msgs::Point& end)
 {
   // Calculate the distance between the waypoints
@@ -67,6 +77,14 @@ private:
     std::vector<virtual_intersection> virtual_intersections_;
     size_t closest_intersection_ = -1;
 
+    double spatnmap_timer_freq_ = 50.0;
+    spatnmap_ref phase_holder_;
+    std::mutex spatnmap_mtx_;
+    ros::Timer spatnmap_timer_;
+    bool filler_activate_ = false;
+
+
+
 public:
     V2xVirtualMap(){
         nh_ = ros::NodeHandle();
@@ -76,16 +94,29 @@ public:
 
         // Subscribers
         closest_waypoint_sub_  = nh_.subscribe("closest_waypoint", 10, &V2xVirtualMap::closestWaypointCallback, this);
-        spat_sub_ = nh_.subscribe("/v2x/SPaT", 10, &V2xVirtualMap::spatCallback, this);
         waypoints_sub_ = nh_.subscribe("base_waypoints", 1, &V2xVirtualMap::baseWaypointCallback, this);
+
+        if (filler_activate_){
+            spat_sub_ = nh_.subscribe("/v2x/SPaT", 10, &V2xVirtualMap::spatCallback_sup, this);
+        } else {
+            spat_sub_ = nh_.subscribe("/v2x/SPaT", 10, &V2xVirtualMap::spatCallback, this);
+        }
 
         // Publisher(s)
         spatnmap_pub_ = nh_.advertise<apsrc_msgs::SPaTnMAP>("/v2x/SPaTnMAP", 1, true);
+
+        // Timer
+        if (filler_activate_){
+            spatnmap_timer_ = nh_.createTimer(ros::Duration(1.0/spatnmap_timer_freq_), std::bind(&V2xVirtualMap::spatnmapTimerCallback, this));
+        }
     }
 
     void loadParams(){
         pnh_.param<std::string>("virtual_map_file", virtual_map_file_, "./config/virtual_map.yaml");
         pnh_.param<bool>("enable_loop", loop_, false);
+        pnh_.param("timer_freq", spatnmap_timer_freq_, 50.0);
+        pnh_.param<bool>("filler_activate", filler_activate_, false);
+
         ROS_INFO("Parameters Loaded");
         return;
     }
@@ -193,6 +224,60 @@ public:
                     spatnmap_pub_.publish(msg);
                 }
             }
+        }
+        return;
+    }
+
+    void spatCallback_sup(const apsrc_msgs::SignalPhaseAndTiming::ConstPtr& msg){
+        if (msg->intersections.intersectionState[0].messageId == virtual_intersections_[closest_intersection_].intersection_id){
+            apsrc_msgs::MovementList tmp = msg->intersections.intersectionState[0].states;
+            for (auto& m : tmp.movementState){
+                if (m.signalGroup == virtual_intersections_[closest_intersection_].signal_group){
+                    std::unique_lock<std::mutex> spat_lock(spatnmap_mtx_);
+                    if (phase_holder_.phase == m.stateTimeSpeed[0].eventState.state 
+                        && phase_holder_.end_time == m.stateTimeSpeed[0].minEndTime
+                        && phase_holder_.intersection_id == msg->intersections.intersectionState[0].messageId){
+                        return;
+                    }
+                    
+                    phase_holder_.intersection_id = msg->intersections.intersectionState[0].messageId;
+                    phase_holder_.end_time = m.stateTimeSpeed[0].minEndTime;
+                    phase_holder_.phase = m.stateTimeSpeed[0].eventState.state;
+                    
+                    // Calculate time to stop
+                    ros::Time current_time = ros::Time::now();
+                    time_t whole_seconds = static_cast<time_t>(std::floor(current_time.toSec()));
+                    double fractional_part = current_time.toSec() - whole_seconds;
+                    
+                    std::tm* time_info = std::gmtime(&whole_seconds);
+                    int seconds_since_hour = time_info->tm_min * 60 + time_info->tm_sec;
+                    double total_seconds_of_hour = seconds_since_hour + fractional_part;
+                    phase_holder_.count_down = m.stateTimeSpeed[0].minEndTime - total_seconds_of_hour + virtual_intersections_[closest_intersection_].time_offset;
+                    if (phase_holder_.count_down < 0){
+                        phase_holder_.count_down += 3600;
+                    }
+                    phase_holder_.expiration_time = current_time.toSec() + phase_holder_.count_down;
+                  }
+            }
+        }
+        return;
+    }
+
+    void spatnmapTimerCallback(){
+        std::unique_lock<std::mutex> spat_lock(spatnmap_mtx_);
+        if (ros::Time::now().toSec() < phase_holder_.expiration_time){
+            apsrc_msgs::SPaTnMAP msg;
+            msg.header.stamp = ros::Time::now();
+            msg.intersection_id = virtual_intersections_[closest_intersection_].intersection_id;
+            msg.stop_waypoint = virtual_intersections_[closest_intersection_].waypoint_id;
+            msg.depart_waypoint = virtual_intersections_[closest_intersection_].departure_id;
+            msg.distance_to_stop = update_distance();
+            msg.cycle_time_red = virtual_intersections_[closest_intersection_].cycletime_red;
+            msg.cycle_time_yellow = virtual_intersections_[closest_intersection_].cycletime_yellow;
+            msg.cycle_time_green = virtual_intersections_[closest_intersection_].cycletime_green;
+            msg.time_to_stop = phase_holder_.expiration_time - msg.header.stamp.toSec();
+            msg.phase = phase_holder_.phase;
+            spatnmap_pub_.publish(msg);
         }
         return;
     }
