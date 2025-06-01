@@ -31,6 +31,13 @@
   <arg name="filler_activate" default="false"/>
   <arg name="timer_freq" default="50.0"/>
 
+  <!-- Blind Spot detection -->
+  <arg name="enable_blindspot" default="true"/>
+  <arg name="blindspot_width" default="3.3"/>
+  <arg name="blindspot_in_lane" default="1.0"/>
+  <arg name="blindspot_length" default="15.0"/>
+  <arg name="blindspot_max_T" default="4.0"/>
+  <arg name="blindspot_step_T" default="0.5"/>
 
 
   <node if="$(arg v2x_viz)" pkg="apsrc_v2x_viz" type="apsrc_v2x_viz_node" name="apsrc_v2x_viz" output="screen" >
@@ -40,6 +47,12 @@
     <param name="lidar_topic_publisher" value="$(arg lidar_topic_publisher)"/>
     <param name="MA_gain" value="$(arg MA_gain)"/>
     <param name="cleanup_freq" value="$(arg cleanup_freq)"/>
+    <param name="enable_blindspot" value="$(arg enable_blindspot)"/>
+    <param name="blindspot_width" value="$(arg blindspot_width)"/>
+    <param name="blindspot_in_lane" value="$(arg blindspot_in_lane)"/>
+    <param name="blindspot_length" value="$(arg blindspot_length)"/>
+    <param name="blindspot_max_T" value="$(arg blindspot_max_T)"/>
+    <param name="blindspot_step_T" value="$(arg blindspot_step_T)"/>
   </node>
 
   <node if="$(arg v2x_spatnmap)" pkg="apsrc_v2x_viz" type="apsrc_v2x_spatnmap_node" name="apsrc_spatnmap_viz" output="screen" >

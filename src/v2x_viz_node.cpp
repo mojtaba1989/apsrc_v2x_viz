@@ -73,7 +73,7 @@ public:
 
   void loadParams()
   {
-    pnh_.param("fake_lidar", fake_lidar_, false);
+    pnh_.param<bool>("fake_lidar", fake_lidar_, false);
     pnh_.param<std::string>("pcd_file", pcd_FILENAME_, "null.pcd");
     pnh_.param<std::string>("lidar_topic_listener", lidar_topic_sub_, "/points_raw");
     pnh_.param<std::string>("lidar_topic_publisher", lidar_topic_pub_, "/points_mod");
@@ -82,10 +82,20 @@ public:
     pnh_.param<std::string>("imu_topic", imu_topic_, "/gps/imu");
     pnh_.param("cleanup_freq", cleanup_freq_, 1.0);
     pnh_.param("MA_gain", MA_gain_, 0.1);
+
     pnh_.param<std::string>("ignore_id", ignore_id_, "00000001");
-    pnh_.param("fake_radar", fake_radar_, false);
+
+    pnh_.param<bool>("fake_radar", fake_radar_, false);
     pnh_.param("radar_freq", radar_freq_, 1.0);
     pnh_.param("radar_to_baseline", radar_to_baseline_, 4.8);
+
+    pnh_.param<bool>("enable_blindspot", enable_blindspot_, false);
+    pnh_.param("blindspot_width", blindspot_width_, 3.3);
+    pnh_.param("blindspot_length", blindspot_length_, 15.0);
+    pnh_.param("blindspot_max_T", blindspot_max_T_, 4.0);
+    pnh_.param("blindspot_step_T", blindspot_step_T_, 0.5);
+    pnh_.param("blindspot_in_lane", blindspot_in_lane_, 1.0);
+
     ROS_INFO("Parameters Loaded");
 
     if (!fake_lidar_){
@@ -166,6 +176,9 @@ public:
     BSM_node_list_[node_idx].stamp = ros::Time::now();
     BSM_node_list_[node_idx].active = true;
     BSM_node_list_[node_idx].velocity = msg->BSMCore.Speed;
+    bool is_in_blindspot = checkBlindSpot(BSM_node_list_[node_idx].abs_x,
+                                          BSM_node_list_[node_idx].abs_y, 
+                                          BSM_node_list_[node_idx].velocity);
 
     visualization_msgs::Marker text; 
     text.header.frame_id = "base_link";
@@ -182,15 +195,44 @@ public:
     text.scale.x = 1.0;
     text.scale.y = 1.0;
     text.scale.z = 1.0;
-    text.color.r = 0.0;
-    text.color.g = 1.0;
-    text.color.b = 0.0;
-    text.color.a = 1.0;
-    text.text = "ID: " + msg->BSMCore.ID + "\n" +
-    "heading:" + std::to_string(BSM_node_list_[node_idx].yaw) + "\n" +
-    "dN: "  + std::to_string(deltaN) + "m\n" + 
-    "dE: " + std::to_string(deltaE) + "m\n";
+    if (is_in_blindspot){
+      text.color.r = 1.0;
+      text.color.g = 0.0;
+      text.color.b = 0.0;
+      text.color.a = 1.0;
+    } else {
+      text.color.r = 0.0;
+      text.color.g = 1.0;
+      text.color.b = 0.0;
+      text.color.a = 1.0;
+    }
+    // text.text = "ID: " + msg->BSMCore.ID + "\n" +
+    // "heading:" + std::to_string(BSM_node_list_[node_idx].yaw) + "\n" +
+    // "dN: "  + std::to_string(deltaN) + "m\n" + 
+    // "dE: " + std::to_string(deltaE) + "m\n";
+    text.text = "ID: " + msg->BSMCore.ID + "\n";
     marker_pub_.publish(text);
+  }
+
+  bool checkBlindSpot(double x, double y, double velocity){
+    if (!enable_blindspot_){ // Check if blindspot is enabled
+      return false;
+    }
+    if (abs(y) > blindspot_width_ || abs(y) <= blindspot_in_lane_){ // Check if the vehicle is in the blindspot
+      return false;
+    }
+    if (abs(x) > 5 * blindspot_length_){ // Check if the vehicle is too far away
+      return false;
+    }
+    double T = 0;
+    double delta_vel = current_speed_ - velocity;
+    while (T <= blindspot_max_T_){
+      if (abs(x-T*delta_vel)<= blindspot_length_){
+        return true;
+      }
+      T += blindspot_step_T_;
+    }
+    return false;
   }
 
   void lidarCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
@@ -284,6 +326,14 @@ private:
 
   double cleanup_freq_ = 1.0;
   ros::Timer timer_;
+
+  
+  bool enable_blindspot_ = true;
+  double blindspot_width_ = 3.3;
+  double blindspot_in_lane_ = 1.0;
+  double blindspot_length_ = 15.0;
+  double blindspot_max_T_ = 5.0;
+  double blindspot_step_T_ = 0.5;
 };
 
 int main(int argc, char** argv) {
